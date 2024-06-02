@@ -1,40 +1,64 @@
-// src/components/SubnetTable.tsx
-"use client";
+'use client';
 
 import React from 'react';
+import styled from 'styled-components';
 
 interface SubnetTableProps {
   subnets: Array<{
     subnetNumber: number;
-    bits: number;
+    bits: string; 
     firstAddress: string;
     lastAddress: string;
   }>;
 }
 
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+`;
+
+const TableHeader = styled.th`
+  background-color: #007bff;
+  color: white;
+  padding: 10px;
+  border: 1px solid #ddd;
+`;
+
+const TableRow = styled.tr`
+  &:nth-child(even) {
+    background-color: #f2f2f2;
+  }
+`;
+
+const TableCell = styled.td`
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+`;
+
 const SubnetTable: React.FC<SubnetTableProps> = ({ subnets }) => {
   return (
-    <table>
+    <Table>
       <thead>
         <tr>
-          <th>Subnet Number</th>
-          <th>Bits</th>
-          <th>Start IP</th>
-          <th>End IP</th>
+          <TableHeader>Subnet</TableHeader>
+          <TableHeader>Bits</TableHeader>
+          <TableHeader>Start IP</TableHeader>
+          <TableHeader>End IP</TableHeader>
         </tr>
       </thead>
       <tbody>
         {subnets.map((subnet) => (
-          <tr key={subnet.subnetNumber
-          }>
-            <td>{subnet.subnetNumber}</td>
-            <td>{subnet.bits}</td>
-            <td>{subnet.firstAddress}</td>
-            <td>{subnet.lastAddress}</td>
-          </tr>
+          <TableRow key={subnet.subnetNumber}>
+            <TableCell>{subnet.subnetNumber}</TableCell>
+            <TableCell>{subnet.bits}</TableCell>
+            <TableCell>{subnet.firstAddress}</TableCell>
+            <TableCell>{subnet.lastAddress}</TableCell>
+          </TableRow>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 };
 
