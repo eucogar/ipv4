@@ -42,10 +42,10 @@ const SubnetTable: React.FC<SubnetTableProps> = ({ subnets }) => {
     <Table>
       <thead>
         <tr>
-          <TableHeader>Subnet</TableHeader>
+          <TableHeader>Subred</TableHeader>
           <TableHeader>Bits</TableHeader>
-          <TableHeader>Start IP</TableHeader>
-          <TableHeader>End IP</TableHeader>
+          <TableHeader>D. Inicial</TableHeader>
+          <TableHeader>D. Final</TableHeader>
         </tr>
       </thead>
       <tbody>

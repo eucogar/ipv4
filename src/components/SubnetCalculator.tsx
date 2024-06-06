@@ -28,38 +28,79 @@ const Input = styled.input`
   box-sizing: border-box;
 `;
 
+const InputGroup = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
 const Button = styled.button`
-  width: 100%;
+  flex: 1;
   padding: 10px;
   background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  margin-top: 10px;
 
   &:hover {
     background-color: #0056b3;
   }
 `;
 
+const ClearButton = styled(Button)`
+  background-color: #dc3545;
+
+  &:hover {
+    background-color: #c82333;
+  }
+`;
+
 const SubnetCalculator: React.FC = () => {
   const [ipAddress, setIpAddress] = useState('');
-  const [maskOrSubnets, setMaskOrSubnets] = useState('');
+  const [subnetMask, setSubnetMask] = useState('');
+  const [numSubnets, setNumSubnets] = useState('');
   const [subnets, setSubnets] = useState<any[]>([]);
 
   const validateIpAddress = (address: string): boolean => {
     return ip.isV4Format(address);
   };
 
+  const handleIpAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const regex = /^[0-9.]*$/;
+    if (regex.test(value)) {
+      setIpAddress(value);
+    }
+  };
+
+  const handleSubnetMaskChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const regex = /^[0-9./]*$/;
+    if (regex.test(value)) {
+      setSubnetMask(value);
+    }
+  };
+
+  const handleNumSubnetsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const regex = /^[0-9]*$/;
+    if (regex.test(value)) {
+      setNumSubnets(value);
+    }
+  };
+
   let parsedSubnets: any[] = [];
-  let subnetMask = '';
-  let numSubnets = 0;
-  let subnetInfo
+  let subnetInfo;
 
   const calculateSubnets = () => {
     if (!validateIpAddress(ipAddress)) {
-      alert('IP address is invalid');
+      alert('La dirección IP es inválida');
       return;
     }
 
@@ -79,10 +120,10 @@ const SubnetCalculator: React.FC = () => {
       return numero;
     };
 
-    if (maskOrSubnets.includes('/')) {
-      subnetMask = maskOrSubnets.replace('/', '');
-      subnetInfo = ip.cidrSubnet(`${ipAddress}/${subnetMask}`);
-      const bits = restarOcho(subnetMask);
+    if (subnetMask) {
+      const maskLength = subnetMask.includes('/') ? parseInt(subnetMask.replace('/', '')) : convertMaskToCIDR(subnetMask);
+      subnetInfo = ip.cidrSubnet(`${ipAddress}/${maskLength}`);
+      const bits = restarOcho(maskLength);
       const numSubnets = Math.pow(2, bits);
 
       let i = 0;
@@ -90,7 +131,7 @@ const SubnetCalculator: React.FC = () => {
 
       while (subnetCount < numSubnets) {
         const subnetBase = ip.toLong(subnetInfo.networkAddress) + (i * subnetInfo.numHosts);
-        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + subnetMask);
+        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + maskLength);
         const isDuplicate = parsedSubnets.some(subnet =>
           subnet.firstAddress === newSubnet.firstAddress && subnet.lastAddress === newSubnet.lastAddress
         );
@@ -108,66 +149,94 @@ const SubnetCalculator: React.FC = () => {
         }
         i++;
       }
-    } else if (maskOrSubnets.includes('.')) {
-      subnetMask = convertMaskToCIDR(maskOrSubnets).toString();
-       subnetInfo = ip.cidrSubnet(`${ipAddress}/${subnetMask}`);
-      const bits = restarOcho(subnetMask);
-      const numSubnets = Math.pow(2, bits);
-
-      for (let i = 0; i < numSubnets; i++) {
-        const subnetBase = ip.toLong(subnetInfo.networkAddress) + (i * subnetInfo.numHosts);
-        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + subnetMask);
-        parsedSubnets.push({
-          subnetNumber: i + 1,
-          bits: subnetMask,
-          firstAddress: newSubnet.firstAddress,
-          lastAddress: newSubnet.lastAddress,
-        });
-      }
-    } else {
-      numSubnets = parseInt(maskOrSubnets);
-      if (isNaN(numSubnets) || numSubnets <= 0) {
-        alert('Number of subnets is invalid');
+    } else if (numSubnets) {
+      const numSubnetsValue = parseInt(numSubnets);
+      if (isNaN(numSubnetsValue) || numSubnetsValue <= 0) {
+        alert('El número de subredes es inválido');
         return;
       }
 
-      const originalSubnetInfo = ip.cidrSubnet(`${ipAddress}/18`);
-      const additionalBits = Math.ceil(Math.log2(numSubnets));
-      const newSubnetMaskLength = originalSubnetInfo.subnetMaskLength + additionalBits;
-      const subnetSize = Math.pow(2, 32 - newSubnetMaskLength);
-
-      for (let i = 0; i < numSubnets; i++) {
-        const subnetBase = ip.toLong(originalSubnetInfo.networkAddress) + (i * subnetSize);
-        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + newSubnetMaskLength);
-        parsedSubnets.push({
-          subnetNumber: i + 1,
-          bits: newSubnetMaskLength,
-          firstAddress: newSubnet.firstAddress,
-          lastAddress: newSubnet.lastAddress,
-        });
+      let bits = 0;
+      let maskLength = ''
+      if (numSubnetsValue < 25) {
+        maskLength = '24'; // Clase C
+        bits = 5;
+      } else if (numSubnetsValue < 17) {
+        maskLength = '16'; // Clase b
+        bits = 4;
+      } else if (numSubnetsValue < 9) {
+        maskLength ='8'; // Clase A
+        bits = 3;
       }
+
+      subnetInfo = ip.cidrSubnet(`${ipAddress}/${maskLength}`);
+
+      let i = 0;
+      let subnetCount = 0;
+
+      while (subnetCount < numSubnetsValue) {
+        const subnetBase = ip.toLong(subnetInfo.networkAddress) + (i * subnetInfo.numHosts);
+        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + maskLength);
+        const isDuplicate = parsedSubnets.some(subnet =>
+          subnet.firstAddress === newSubnet.firstAddress && subnet.lastAddress === newSubnet.lastAddress
+        );
+
+        if (!isDuplicate) {
+          const binarySuffix = subnetCount.toString(2).padStart(bits, '0');
+
+          parsedSubnets.push({
+            subnetNumber: subnetCount + 1,
+            bits: binarySuffix,
+            firstAddress: newSubnet.firstAddress,
+            lastAddress: newSubnet.lastAddress,
+          });
+          subnetCount++;
+        }
+        i++;
+      }
+
     }
 
     setSubnets(parsedSubnets);
     console.log(parsedSubnets);
   };
 
+  const clearFields = () => {
+    setIpAddress('');
+    setSubnetMask('');
+    setNumSubnets('');
+    setSubnets([]);
+  };
+
   return (
     <Container>
-      <Title>Subnet Calculator</Title>
+      <Title>Calculadora de Subredes</Title>
       <Input
         type="text"
-        placeholder="Enter IP address"
+        placeholder="Ingrese la dirección IP"
         value={ipAddress}
-        onChange={(e) => setIpAddress(e.target.value)}
+        onChange={handleIpAddressChange}
       />
-      <Input
-        type="text"
-        placeholder="Enter subnet mask or number of subnets"
-        value={maskOrSubnets}
-        onChange={(e) => setMaskOrSubnets(e.target.value)}
-      />
-      <Button onClick={calculateSubnets}>Calculate</Button>
+      <InputGroup>
+        <Input
+          type="text"
+          placeholder="Ingrese la máscara de subred"
+          value={subnetMask}
+          onChange={handleSubnetMaskChange}
+          disabled={!!numSubnets}
+        />
+        <Input
+          type="text"
+          placeholder="Ingrese el número de subredes"
+          value={numSubnets}
+          onChange={handleNumSubnetsChange}
+          disabled={!!subnetMask}
+        />
+      </InputGroup>
+      <ButtonGroup>
+        <Button onClick={calculateSubnets}>Calcular</Button>
+        <ClearButton onClick={clearFields}>Limpiar</ClearButton>
+      </ButtonGroup>
       <SubnetTable subnets={subnets} />
     </Container>
   );
