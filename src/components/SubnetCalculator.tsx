@@ -68,7 +68,22 @@ const SubnetCalculator: React.FC = () => {
   const [subnets, setSubnets] = useState<any[]>([]);
 
   const validateIpAddress = (address: string): boolean => {
-    return ip.isV4Format(address);
+    if (!ip.isV4Format(address)) {
+      return false;
+    }
+    const octets = address.split('.').map(Number);
+    return octets.every(octet => octet >= 0 && octet <= 255);
+  };
+
+  const validateSubnetMask = (mask: string): boolean => {
+    if (mask.includes('/')) {
+      const maskLength = parseInt(mask.replace('/', ''));
+      return maskLength >= 0 && maskLength <= 32;
+    } else if (ip.isV4Format(mask)) {
+      const octets = mask.split('.').map(Number);
+      return octets.every(octet => octet >= 0 && octet <= 255);
+    }
+    return false;
   };
 
   const handleIpAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +119,11 @@ const SubnetCalculator: React.FC = () => {
       return;
     }
 
+    if (subnetMask && !validateSubnetMask(subnetMask)) {
+      alert('La máscara de subred es inválida');
+      return;
+    }
+
     const convertMaskToCIDR = (subnetMask: string): number => {
       return subnetMask
         .split('.')
@@ -118,6 +138,10 @@ const SubnetCalculator: React.FC = () => {
         numero -= 8;
       }
       return numero;
+    };
+
+    const CalcularBits = (numero: number): number => {
+      return Math.ceil(Math.log2(numero));
     };
 
     if (subnetMask) {
@@ -156,27 +180,29 @@ const SubnetCalculator: React.FC = () => {
         return;
       }
 
-      let bits = 0;
-      let maskLength = ''
-      if (numSubnetsValue < 25) {
-        maskLength = '24'; // Clase C
-        bits = 5;
-      } else if (numSubnetsValue < 17) {
-        maskLength = '16'; // Clase b
-        bits = 4;
-      } else if (numSubnetsValue < 9) {
-        maskLength ='8'; // Clase A
-        bits = 3;
+      const octetos = ipAddress.split('.').map(Number);
+      const primerOcteto = octetos[0];
+      let maskLength = 0;
+
+      if (primerOcteto >= 1 && primerOcteto <= 126) {
+        maskLength =  8; // Clase A
+      } else if (primerOcteto >= 128 && primerOcteto <= 191) {
+        maskLength = 16; // Clase B
+      } else if (primerOcteto >= 192 && primerOcteto <= 223) {
+        maskLength = 24; // Clase C
       }
 
-      subnetInfo = ip.cidrSubnet(`${ipAddress}/${maskLength}`);
+      const maskLengt = maskLength + CalcularBits(numSubnetsValue);
+      subnetInfo = ip.cidrSubnet(`${ipAddress}/${maskLengt}`);
+      const bits = CalcularBits(numSubnetsValue);
+      const numSubnet = Math.pow(2, bits);
 
       let i = 0;
       let subnetCount = 0;
 
       while (subnetCount < numSubnetsValue) {
         const subnetBase = ip.toLong(subnetInfo.networkAddress) + (i * subnetInfo.numHosts);
-        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + maskLength);
+        const newSubnet = ip.cidrSubnet(ip.fromLong(subnetBase) + '/' + maskLengt);
         const isDuplicate = parsedSubnets.some(subnet =>
           subnet.firstAddress === newSubnet.firstAddress && subnet.lastAddress === newSubnet.lastAddress
         );
@@ -194,7 +220,6 @@ const SubnetCalculator: React.FC = () => {
         }
         i++;
       }
-
     }
 
     setSubnets(parsedSubnets);
