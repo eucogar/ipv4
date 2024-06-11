@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import ip from 'ip';
 import SubnetTable from './SubnetTable';
 import styled from 'styled-components';
+import { Console } from 'console';
 
 const Container = styled.div`
   max-width: 600px;
@@ -68,11 +69,7 @@ const SubnetCalculator: React.FC = () => {
   const [subnets, setSubnets] = useState<any[]>([]);
 
   const validateIpAddress = (address: string): boolean => {
-    if (!ip.isV4Format(address)) {
-      return false;
-    }
-    const octets = address.split('.').map(Number);
-    return octets.every(octet => octet >= 0 && octet <= 255);
+    return ip.isV4Format(address);
   };
 
   const validateSubnetMask = (mask: string): boolean => {
@@ -110,9 +107,6 @@ const SubnetCalculator: React.FC = () => {
     }
   };
 
-  let parsedSubnets: any[] = [];
-  let subnetInfo;
-
   const calculateSubnets = () => {
     if (!validateIpAddress(ipAddress)) {
       alert('La dirección IP es inválida');
@@ -143,6 +137,21 @@ const SubnetCalculator: React.FC = () => {
     const CalcularBits = (numero: number): number => {
       return Math.ceil(Math.log2(numero));
     };
+
+    function cidrToSubnetMask(maskBits: any) {
+      const mask = (0xFFFFFFFF << (32 - maskBits)) >>> 0;
+      const subnetMask = [
+          (mask >>> 24) & 0xFF,
+          (mask >>> 16) & 0xFF,
+          (mask >>> 8) & 0xFF,
+          mask & 0xFF
+      ].join('.');
+      
+      setSubnetMask(subnetMask);
+  }
+
+    let parsedSubnets: any[] = [];
+    let subnetInfo;
 
     if (subnetMask) {
       const maskLength = subnetMask.includes('/') ? parseInt(subnetMask.replace('/', '')) : convertMaskToCIDR(subnetMask);
@@ -194,6 +203,7 @@ const SubnetCalculator: React.FC = () => {
 
       const maskLengt = maskLength + CalcularBits(numSubnetsValue);
       subnetInfo = ip.cidrSubnet(`${ipAddress}/${maskLengt}`);
+      cidrToSubnetMask(maskLengt);
       const bits = CalcularBits(numSubnetsValue);
       const numSubnet = Math.pow(2, bits);
 
